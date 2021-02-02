@@ -16,12 +16,14 @@ import dash_bootstrap_components as dbc
 
 # data manipulatioon
 import pandas as pd
-import numpy as np
 
 # scrape 
 import requests
 from bs4 import BeautifulSoup
-import time
+
+# auto open browser
+from threading import Timer
+import webbrowser
 
 # add directories
 import sys
@@ -609,6 +611,10 @@ app.layout = html.Div([
 
 ])
 
+def open_browser():
+    webbrowser.open_new('http://127.0.0.1:8050/')
+    
 if __name__ == '__main__':
+    Timer(1, open_browser).start()
     app.run_server(debug=True)
     
