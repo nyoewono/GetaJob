@@ -148,7 +148,10 @@ def get_df_status(status, group_search):
 
 
 def text_template(lists, link):
-    text = [html.H3('Job details')]
+    text = [html.H3('Job details', style={'backgroundColor':'#327ba8',
+                                          'color':'white',
+                                          'padding':'5px',
+                                          'border-radius': 10})]
     
     for i in lists:
         if type(i)!=list:
@@ -378,8 +381,11 @@ app.layout = html.Div([
     # Title
     html.H1(children='GetaJob', 
             style={
-                'paddingTop': '20px',
-                'paddingLeft': '10px'
+                'backgroundColor':'#327ba8',
+                'verticalAlign':'middle',
+                'border-radius': 10,
+                'color':'white',
+                'padding':'10px'
                 }
             ),
     
@@ -491,7 +497,8 @@ app.layout = html.Div([
         
         ], style={'paddingTop':'3%',
                   'paddingLeft':'10px',
-                  'display':'table-cell'}),
+                  'display':'table-cell',
+                  'paddingRight':'10px'}),
         
       ], style={'display':'table-cell', 'width':'49%'}),
     
@@ -504,7 +511,9 @@ app.layout = html.Div([
                    "height":"448px", 'marginLeft':'2%', 'paddingRight':'2%'}
     
         )], style={'display':'table-cell', 'width':'49%', 'marginLeft':'2%', 
-                   'height':'600px', 'overflow':'scroll'})
+                   'marginRight':'2%',
+                   'height':'600px', 'overflow':'scroll', 'border':'1px solid',
+                   'borderColor':'#327ba8','border-radius': 10})
 
 ])
 
