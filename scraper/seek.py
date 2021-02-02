@@ -7,17 +7,17 @@ Created on Sat Jan 30 19:55:10 2021
 """
 
 # data storing and manipulation
-import pandas as pd
-import numpy as np
-import os 
-import re
+# import pandas as pd
+# import numpy as np
+# import os 
+# import re
 from datetime import datetime
 
 # scraping tools
-import requests
+# import requests
 from selenium import webdriver
 import time
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 
 # add directories
 import sys
@@ -35,7 +35,7 @@ class SeekScrape:
     """
     
     # adjustable
-    path = os.getcwd()+'/chromedriver'
+    path = path = '/Users/nathanaelyoewono/Project/GetaJob/scraper/chromedriver'
     website = 'Seek'
     
     def __init__(self, role, location):
@@ -78,7 +78,7 @@ class SeekScrape:
         duplicated_cards = 0
         
         start = 1
-        end = 50
+        end = 20
         
         # iterate over each page (but only limit to 50)
         for page in range(start, end+1):
@@ -92,15 +92,19 @@ class SeekScrape:
             time.sleep(2)
             
             # get all job cards
-            jobs = self.browser.find_element_by_class_name('_3MPUOLE')
-            jobs = jobs.find_elements_by_class_name('_2m3Is-x')
-            
+            try:
+                jobs = self.browser.find_element_by_class_name('_3MPUOLE')
+                jobs = jobs.find_elements_by_class_name('_2m3Is-x')
+            except:
+                print('Jobs not found')
+                self.browser.close()
+                
             # iterate over each job cards to get the details
             for i in jobs:
                 role, link, company, location, salary = self._get_details(i)
                 
                 # Don't apply the company is not stated
-                if company != '':
+                if role != '' or link != '' or company != '':
                 
                     get_comp_id = self.db.get_company_port_group_id(company, 'company')
                     get_port_id = self.db.get_company_port_group_id(SeekScrape.website, 'portal')
@@ -132,13 +136,21 @@ class SeekScrape:
                     # store the many-many relationship between job and role selected
                     if job_id != None and get_group_id!=None:
                         self.db.create_group_job((job_id, get_group_id))
+                        
+        self.browser.close()
  
         
         
     def _get_details(self, obj):
         
-        title = obj.find_element_by_xpath('span[2]/span/h1/a').text
-        link = obj.find_element_by_xpath('span[2]/span/h1/a').get_attribute('href')
+        try:
+            title = obj.find_element_by_xpath('span[2]/span/h1/a').text
+        except:
+            title=''
+        try:
+            link = obj.find_element_by_xpath('span[2]/span/h1/a').get_attribute('href')
+        except:
+            link=''
         try:
             company = obj.find_element_by_xpath('span[5]/span/a').text
         except:
@@ -171,7 +183,7 @@ class SeekScrape:
         else:
             print('Failed to connect to db')
     
-scrape = SeekScrape('Data Analyst', 'Melbourne')
-scrape.run()
+# scrape = SeekScrape('Data Analyst', 'Melbourne')
+# scrape.run()
     
         

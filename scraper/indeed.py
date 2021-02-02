@@ -7,17 +7,17 @@ Created on Sat Jan 30 12:40:22 2021
 """
 
 # data storing and manipulation
-import pandas as pd
-import numpy as np
-import os 
-import re
+# import pandas as pd
+# import numpy as np
+# import os 
+# import re
 from datetime import datetime
 
 # scraping tools
-import requests
+# import requests
 from selenium import webdriver
 import time
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 
 # add directories
 import sys
@@ -35,7 +35,7 @@ class IndeedScrape:
     """
     
     # adjustable
-    path = os.getcwd()+'/chromedriver'
+    path = '/Users/nathanaelyoewono/Project/GetaJob/scraper/chromedriver'
     website = 'Indeed'
     
     def __init__(self, role, location):
@@ -55,7 +55,7 @@ class IndeedScrape:
         self.browser = webdriver.Chrome(executable_path = IndeedScrape.path, options = chrome_options)
         
         # alternative url
-        url = f'https://au.indeed.com/?r=aus'
+        url = 'https://au.indeed.com/?r=aus'
         
         self.browser.get(url)
         
@@ -64,7 +64,13 @@ class IndeedScrape:
         
         self.browser.find_element_by_id('text-input-what').send_keys(self.role)
         self.browser.find_element_by_id('text-input-where').send_keys(self.loc)
-        self.browser.find_element_by_xpath('/html/body/div[1]/div[2]/div[3]/div[2]/div/div/div/form/div[3]/button').click()
+        while True:
+            try:
+                self.browser.find_element_by_xpath('//*[@id="whatWhereFormId"]/div[3]/button').click()
+                break
+            except:
+                pass
+        # self.browser.find_element_by_class_name('icl-Button').click()
         time.sleep(2)
         
     def _get_job_cards(self):
@@ -94,14 +100,18 @@ class IndeedScrape:
             
             self._find_popup()
             
-            jobs = self.browser.find_elements_by_class_name("jobsearch-SerpJobCard")
-            
+            try:
+                jobs = self.browser.find_elements_by_class_name("jobsearch-SerpJobCard")
+            except:
+                print('Job not found')
+                self.browser.close()
+                
             #print(jobs)
             #print(len(jobs))
             self._find_popup()
             
             for each in jobs:
-                role, company, link, salary, location, comp_link = self._get_details(each)
+                role, company, link, salary, location = self._get_details(each)
                 
                 get_comp_id = self.db.get_company_port_group_id(company, 'company')
                 get_port_id = self.db.get_company_port_group_id(IndeedScrape.website, 'portal')
@@ -112,7 +122,7 @@ class IndeedScrape:
                 if get_comp_id==None:
                     
                     # add company
-                    get_comp_id = self.db.create_company((company,comp_link))
+                    get_comp_id = self.db.create_company((company,))
                 
                 if get_port_id==None:
                     # add website
@@ -121,7 +131,6 @@ class IndeedScrape:
                 if get_group_id==None:
                     # add group
                    get_group_id = self.db.create_group((self.role.lower(),))
-                texts_detail = self._get_text(link)
                  # add job
                 try:
                     today = datetime.date(datetime.now())
@@ -137,9 +146,8 @@ class IndeedScrape:
                 if job_id != None and get_group_id!=None:
                     # fail here
                     self.db.create_group_job((job_id, get_group_id))
-                break
-            break
-        
+            
+            
         self.browser.close()
             # break
         
@@ -150,38 +158,6 @@ class IndeedScrape:
             time.sleep(1)
         except:
             pass
-    
-    def _get_text(self, link):
-        page = requests.get(link)
-        # parse with BFS
-        soup = BeautifulSoup(page.text, 'html.parser')
-        
-        try:
-            texts = soup.find(class_='jobsearch-jobDescriptionText').find_all('p')
-        except:
-            #texts = soup.find(class_='jobsearch-JobComponent-description').find_all('p')
-            texts = ''
-            
-        all_text = []
-        
-        for i in texts:
-            
-            p = i.get_text()
-            all_text.append(p)
-            
-            lists = self._extract_list(i)
-            
-            if lists != None:
-                all_text.append(lists)
-
-        return texts
-    
-    def _extract_list(self, p):
-        for sibling in p.next_siblings:
-            if sibling.name == 'ul':
-                return [li.text for li in sibling.find_all('li')]
-            if sibling.name == 'p':
-                return None 
         
         
     def _get_details(self, job):
@@ -193,10 +169,10 @@ class IndeedScrape:
         company = job.find_element_by_class_name('company').text
         
         # get company's link
-        try:
-            comp_link = job.find_element_by_class_name('company').find_element_by_xpath('a').get_attribute('href')
-        except:
-            comp_link = ''
+        # try:
+        #     comp_link = job.find_element_by_class_name('company').find_element_by_xpath('a').get_attribute('href')
+        # except:
+        #     comp_link = ''
         try:
             salary = job.find_element_by_class_name('salaryText').text
             # print(salary)
@@ -208,11 +184,14 @@ class IndeedScrape:
         except:
             location = ""
         
-        return (role, company, link, salary, location, comp_link)
+        return (role, company, link, salary, location)
     
     def _get_max_page(self):
         self.max_page = self.browser.find_element_by_id('searchCountPages').text
-        self.max_page = int(self.max_page.split(' ')[-2])
+        self.max_page = self.max_page.split(' ')[-2]
+        if ',' in self.max_page:
+            self.max_page = self.max_page.replace(',', '')
+        self.max_page = int(self.max_page)
 
     
     def run(self):
@@ -227,6 +206,6 @@ class IndeedScrape:
         else:
             print('Failed to connect to db')
 
-job = IndeedScrape('Quantitative Developer', 'Melbourne')
-job.run()
+# job = IndeedScrape('Quantitative Developer', 'Melbourne')
+# job.run()
     

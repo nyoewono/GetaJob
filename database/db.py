@@ -35,8 +35,7 @@ class JobDB:
     
     sql_create_company = """CREATE TABLE IF NOT EXISTS company (
                                     id integer PRIMARY KEY,
-                                    name text NOT NULL UNIQUE,
-                                    link text
+                                    name text NOT NULL UNIQUE
                                 );"""
     
     sql_create_portal = """CREATE TABLE IF NOT EXISTS portal (
@@ -120,8 +119,8 @@ class JobDB:
             
     def create_job(self, desc):
         
-        sql = ''' INSERT INTO job(role,company_id,link,location,salary,portal_id, date_scraped, applied, rejected)
-              VALUES(?,?,?,?,?,?,?,?,?) '''
+        sql = ''' INSERT INTO job(role,company_id,link,location,salary,portal_id, date_scraped)
+              VALUES(?,?,?,?,?,?,?)'''
         
         cur = self.conn.cursor()
         cur.execute(sql, desc)
@@ -131,8 +130,8 @@ class JobDB:
     
     def create_company(self, desc):
         
-        sql = ''' INSERT INTO company(name, link)
-              VALUES(?, ?) '''
+        sql = ''' INSERT INTO company(name)
+              VALUES(?) '''
               
         cur = self.conn.cursor()
         cur.execute(sql, desc)

@@ -26,9 +26,13 @@ import time
 # add directories
 import sys
 sys.path.insert(1, '/Users/nathanaelyoewono/Project/GetaJob/database')
+sys.path.insert(1,'/Users/nathanaelyoewono/Project/GetaJob/scraper')
 
 # import db
 from db import JobDB
+# import scraper
+from indeed import IndeedScrape
+from seek import SeekScrape
 
 # check database connection
 db = JobDB()
@@ -41,6 +45,7 @@ else:
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+# app.title = 'GetaJob'
 server = app.server
 
 
@@ -69,14 +74,7 @@ db.conn.close()
 
 ######### -------------------- FUNCTION ---------------------- ###########
 
-prev_search = None
-
-# def display_jobs(job):
-#     """Return ID, Role, Company, Location, Salary, Date Scraped, Positon Level, Portal"""
-#     # print(type(job[6]))
-#     return (job[0], job[1], job[2], job[5], job[4], job[6], job[8])
-
-def get_text(link):
+def get_text_indeed(link):
     page = requests.get(link)
     # parse with BFS
     soup = BeautifulSoup(page.text, 'html.parser')
@@ -84,7 +82,6 @@ def get_text(link):
     try:
         texts = soup.find(class_='jobsearch-jobDescriptionText').find_all('p')
     except:
-        #texts = soup.find(class_='jobsearch-JobComponent-description').find_all('p')
         texts = ''
         
     all_text = []
@@ -101,6 +98,49 @@ def get_text(link):
 
     return all_text
 
+def get_text_seek(link):
+    page = requests.get(link)
+    # parse with BFS
+    soup = BeautifulSoup(page.text, 'lxml')
+    all_text = []
+    try:
+        texts = soup.find(attrs={"data-automation" : "mobileTemplate"})
+        texts = texts.find('div', {"class": "FYwKg WaMPc_4"})
+
+        for i in texts:
+            try:
+                if i.name=='ul':
+                    lists = [j.string for j in i]
+                    all_text.append(lists)
+                else:
+                    if str(i.string)!='None':
+                        all_text.append(str(i.string))
+                        
+            except:            
+                pass
+            
+        all_text = [i for i in all_text if i!=' ']
+    
+        for each_sent in range(len(all_text)):
+            sent = all_text[each_sent]
+
+            if '\xa0' in sent and type(sent)==str:
+                all_text[each_sent] = sent.replace('\xa0', '')
+                
+            # clean out the list part    
+            elif type(sent)==list:
+                all_text[each_sent] = [i for i in all_text[each_sent] if i != ' ']
+                
+                for each_each_sent in range(len(all_text[each_sent])):
+                    new_sent = all_text[each_sent][each_each_sent]
+                    if '\xa0' in new_sent:
+                        all_text[each_sent][each_each_sent] = all_text[each_sent][each_each_sent].replace('\xa0', '')
+    except:
+        all_text = ['']
+    
+    return all_text
+
+
 def extract_list(p):
     for sibling in p.next_siblings:
         if sibling.name == 'ul':
@@ -115,10 +155,7 @@ def get_df(group_search):
     else:
         raise("error, can't connect to database")
         
-    # if prev_search != group_search:
     jobs = db.query_jobs(group_search)
-    # jobs = [(i[:-1]) for i in jobs]
-    # print(jobs)
     jobs_df = pd.DataFrame(jobs, columns = ['ID', 'Role', 'Company', 
                                                     'Location', 'Salary', 
                                                     'Date_Scraped',
@@ -137,8 +174,6 @@ def get_df_status(status, group_search):
     if jobs == None:
         return pd.DataFrame([])
     else:
-        #jobs = [display_jobs(i) for i in jobs]
-        # print(jobs)
         jobs_df = pd.DataFrame(jobs, columns = ['ID', 'Role', 'Company', 
                                                         'Location', 'Salary', 
                                                         'Date_Scraped',
@@ -167,7 +202,10 @@ def text_template(lists, link):
     return text
 
 def empty_template():
-    text = [html.H3('No details available')]
+    text = [html.H3('No details available', style={'backgroundColor':'#327ba8',
+                                          'color':'white',
+                                          'padding':'5px',
+                                          'border-radius': 10})]
     return text
 
 def update_applied(apply, ID):
@@ -288,10 +326,15 @@ def display_details(row, data):
             #db.conn.close()
             
             if portal == 'Indeed':
-                texts = get_text(query_link)
+                texts = get_text_indeed(query_link)
                 texts = [i for i in texts if i != '']
                 texts = text_template(texts, query_link)
                 return texts
+            elif portal == 'Seek':
+                texts = get_text_seek(query_link)
+                texts = text_template(texts, query_link)
+                return texts
+                
         else:
             raise("error, can't connect to database")
 
@@ -323,7 +366,7 @@ def show_removed_rows(previous, status, current):
                 cur_row = [row for row in current if row['ID']==applied_id[0]][0]
                 
                 if prev_row['Rejected']!=cur_row['Rejected']:
-                    print(cur_row['Rejected'])
+                
                     #update to database first 
                     update_rejected(cur_row['Rejected'], applied_id[0])
                     applied, rejected, pending = db.query_applied_rejected()
@@ -333,7 +376,8 @@ def show_removed_rows(previous, status, current):
                     return [report_df.to_dict('records'), [0]]
             except:
                 # row does not exist, means removed
-
+                if prev_row['Rejected']==1:
+                    update_rejected(0, applied_id[0])
                 if db.create_connection()==1:
                     applied, rejected, pending = db.query_applied_rejected()
                     
@@ -371,6 +415,46 @@ def clear_report_option(clear_but_clicks):
         return []
     else:
         raise dash.exceptions.PreventUpdate()
+
+@app.callback(Output('role-dropdown', 'value'),
+              Output('role-dropdown', 'options'),
+              [Input('find-new-jobs', 'n_clicks')],
+              [State('new-role', 'value')])
+def new_jobs(click, new_role):
+    # scrape the new job
+    # get infinity loop to wait for the result to come
+    # coat everything with loading page (if have time)
+    
+    # enter here means find has been clicked
+    
+    if new_role==None:
+        raise dash.exceptions.PreventUpdate()
+    else:
+        new_role = new_role.lower()
+        
+        # get the bot up and running to scrape the new role
+        try:
+            indeed_jobs = IndeedScrape(new_role, 'Melbourne')
+            indeed_jobs.run()
+        except:
+            indeed_jobs.run()
+        
+        try:
+            seek_jobs = SeekScrape(new_role, 'Melbourne')
+            seek_jobs.run()
+        except:
+            seek_jobs.run()
+        
+            
+        if db.create_connection()==1:
+            drop_down = db.query_all_group_search()
+            drop_down_dic = [{'label': i[0], 'value': i[0]} for i in drop_down]
+        else:
+            raise("Can't connect to db")
+        
+        return [new_role, drop_down_dic]
+    
+    
     
 
 ######### -------------------- APP ---------------------- ###########
@@ -405,11 +489,13 @@ app.layout = html.Div([
                         
                         # drop down
                         html.Div(
-                            dcc.Dropdown(
-                                id='role-dropdown',
-                                options=drop_down_dic,
-                                value=drop_down[0][0]
-                            ),
+                            dcc.Loading(children=[
+                                dcc.Dropdown(
+                                    id='role-dropdown',
+                                    options=drop_down_dic,
+                                    value=drop_down[0][0]
+                                )
+                            ], id='loading-dropdown', type="default"),
                             style={'width':'70%',  'verticalAlign':'middle'}
                         ),
                     ])
@@ -432,7 +518,9 @@ app.layout = html.Div([
                         # button
                         html.Div(
                             html.Button('Find', 
-                                        id='find-new-jobs'),
+                                        id='find-new-jobs', 
+                                        style={'backgroundColor':'#327ba8',
+                                               'color':'white'}),
                             style={'width':'30%', 'display':'table-cell', 
                                    'paddingLeft':'1%'}
                         ),            
@@ -464,12 +552,14 @@ app.layout = html.Div([
             # clear button
             html.Div(children=[
                 
-                html.Button('Clear', id='clear-but', n_clicks=0)
+                html.Button('Clear', id='clear-but', n_clicks=0,
+                            style={'backgroundColor':'#327ba8',
+                                               'color':'white'})
                 
                 ], style={'display':'table-cell', 'paddingLeft':'5%', 
                           'verticalAlign':'middle'})
 
-        ]),
+        ], style={'verticalAlign':'middle'}),
             
         # display the job thable
         html.Div(children=[
@@ -498,9 +588,11 @@ app.layout = html.Div([
         ], style={'paddingTop':'3%',
                   'paddingLeft':'10px',
                   'display':'table-cell',
-                  'paddingRight':'10px'}),
+                  'paddingRight':'10px',
+                  'verticalAlign':'middle'}),
         
-      ], style={'display':'table-cell', 'width':'49%'}),
+      ], style={'display':'table-cell', 'width':'49%', 'paddingRight':'2%',
+                'verticalAlign':'middle'}),
     
     # display the job description and link
     html.Div(children=[
@@ -519,3 +611,4 @@ app.layout = html.Div([
 
 if __name__ == '__main__':
     app.run_server(debug=True)
+    
