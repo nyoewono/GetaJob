@@ -328,7 +328,7 @@ def update_table(group_search, status, page_current, page_size):
         
         # set the dropdown column for rejected
         table_col.append({"name":"Rejected", "id":"Rejected", 
-                          'presentation': 'dropdown'})
+                          'presentation': 'dropdown', 'editable':True})
         dd = {'Rejected':{'options':[{'label':'Yes', 'value':1}, 
                                      {'label':'No', 'value':0}]}}
         
@@ -660,7 +660,6 @@ app.layout = html.Div([
                 row_selectable='single',
                 row_deletable=True,
                 selected_rows=[0],
-                editable=True,
             )
         
         ], style={'paddingTop':'3%',
