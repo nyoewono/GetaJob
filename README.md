@@ -28,3 +28,18 @@ Functionalities that I would like to add for improving this project:
 - Remove jobs that may not correlate with the role using machine learning and NLP (sometimes, website like Seek give the result using sorting mechanism; thus, not all jobs are related)
 - Use NLP and machine learning again to study the requirements of a specific role (summarize it for you from multiple job posts)
 - Deploy a database automatic cleaning mechanism in which if a job is not applied for almost a month, it will be discarded automatically.
+
+## Potential Bug
+- Bad internet connection will definately lead to a high chance of selenium crash
+- If the selenium chromedriver's version is not the same as your chrome's version, then it will crash. Here is the link to download the chrome for selenium: https://chromedriver.chromium.org/downloads.
+- Sometime, the callback might fail in dash ( I am quite new with Dash so please forgive me XD )
+
+## Installation
+These are the libraries or packages that you may need to install before using the code:
+- pip install selenium
+- pip install beautifulsoup4
+- pip install dash==1.19.0
+- pip install dash-bootstrap-components
+- pip install pandas
+
+# Goodluck and happy job hunting :)
