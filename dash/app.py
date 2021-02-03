@@ -377,9 +377,12 @@ def show_removed_rows(previous, status, current):
                     report_df = pd.DataFrame(data, columns = ['Status', 'Number'])
                     return [report_df.to_dict('records'), [0]]
             except:
-                # row does not exist, means removed
-                if prev_row['Rejected']==1:
-                    update_rejected(0, applied_id[0])
+                try:
+                    # row does not exist, means removed
+                    if prev_row['Rejected']==1:
+                        update_rejected(0, applied_id[0])
+                except:
+                    pass
                 if db.create_connection()==1:
                     applied, rejected, pending = db.query_applied_rejected()
                     
