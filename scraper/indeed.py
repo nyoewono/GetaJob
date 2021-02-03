@@ -6,18 +6,11 @@ Created on Sat Jan 30 12:40:22 2021
 @author: nathanaelyoewono
 """
 
-# data storing and manipulation
-# import pandas as pd
-# import numpy as np
-# import os 
-# import re
 from datetime import datetime
 
 # scraping tools
-# import requests
 from selenium import webdriver
 import time
-# from bs4 import BeautifulSoup
 
 # add directories
 import sys
@@ -64,19 +57,25 @@ class IndeedScrape:
         
         self.browser.find_element_by_id('text-input-what').send_keys(self.role)
         self.browser.find_element_by_id('text-input-where').send_keys(self.loc)
+        # keep on finding the search button
         while True:
             try:
                 self.browser.find_element_by_xpath('//*[@id="whatWhereFormId"]/div[3]/button').click()
                 break
             except:
                 pass
-        # self.browser.find_element_by_class_name('icl-Button').click()
         time.sleep(2)
         
     def _get_job_cards(self):
         
-        # get max page
-        self._get_max_page()
+        try:
+            # get max page
+            self._get_max_page()
+        except:
+            print('Job not found')
+            self.browser.close()
+            return None
+        
         start = 0
         
         role_sr = self.role.split()
@@ -104,10 +103,8 @@ class IndeedScrape:
                 jobs = self.browser.find_elements_by_class_name("jobsearch-SerpJobCard")
             except:
                 print('Job not found')
-                self.browser.close()
+                break
                 
-            #print(jobs)
-            #print(len(jobs))
             self._find_popup()
             
             for each in jobs:
@@ -131,16 +128,17 @@ class IndeedScrape:
                 if get_group_id==None:
                     # add group
                    get_group_id = self.db.create_group((self.role.lower(),))
-                 # add job
-                try:
-                    today = datetime.date(datetime.now())
-                    
+                
+                # add job
+                today = datetime.date(datetime.now())
+                
+                get_job_id = self.db.check_job_exist((role, get_comp_id))
+                if get_job_id==None:
                     job_id = self.db.create_job((role, get_comp_id, link, location, salary, get_port_id, today))
-                except:
-                    # duplicate
+                else:
                     job_id = None
                     duplicated_cards += 1
-                    pass
+                
                 
                 # store the many-many relationship between job and role selected
                 if job_id != None and get_group_id!=None:
@@ -175,18 +173,19 @@ class IndeedScrape:
         #     comp_link = ''
         try:
             salary = job.find_element_by_class_name('salaryText').text
-            # print(salary)
+            
         except:
             salary = ""
         try:
             location = job.find_element_by_class_name('location').text
-            # print(location)
+            
         except:
             location = ""
         
         return (role, company, link, salary, location)
     
     def _get_max_page(self):
+        """Indicate when to stop iterating the page"""
         self.max_page = self.browser.find_element_by_id('searchCountPages').text
         self.max_page = self.max_page.split(' ')[-2]
         if ',' in self.max_page:

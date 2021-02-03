@@ -7,17 +7,11 @@ Created on Sat Jan 30 19:55:10 2021
 """
 
 # data storing and manipulation
-# import pandas as pd
-# import numpy as np
-# import os 
-# import re
 from datetime import datetime
 
 # scraping tools
-# import requests
 from selenium import webdriver
 import time
-# from bs4 import BeautifulSoup
 
 # add directories
 import sys
@@ -61,9 +55,12 @@ class SeekScrape:
         
     def run_query(self):
         
+        # input the search parameter in the search bar
         self.browser.find_element_by_id('keywords-input').send_keys(self.role)
         self.browser.find_element_by_id('SearchBar__Where').send_keys(self.loc)
         time.sleep(2)
+        
+        # get the search button
         self.browser.find_element_by_id('react-autowhatever-1-section-0-item-0').click()
         self.browser.find_element_by_xpath('/html/body/div[1]/div/div[4]/div/div[1]/section/div[2]/div/div/form/button').click()
         time.sleep(2)
@@ -78,7 +75,7 @@ class SeekScrape:
         duplicated_cards = 0
         
         start = 1
-        end = 20
+        end = 10
         
         # iterate over each page (but only limit to 50)
         for page in range(start, end+1):
@@ -97,7 +94,7 @@ class SeekScrape:
                 jobs = jobs.find_elements_by_class_name('_2m3Is-x')
             except:
                 print('Jobs not found')
-                self.browser.close()
+                break
                 
             # iterate over each job cards to get the details
             for i in jobs:
@@ -124,12 +121,12 @@ class SeekScrape:
                         # add group
                        get_group_id = self.db.create_group((self.role.lower(),))
                     
-                     # add job
-                    try:
-                        today = datetime.date(datetime.now())
+                    # add job
+                    today = datetime.date(datetime.now())
+                    get_job_id = self.db.check_job_exist((role, get_comp_id))
+                    if get_job_id==None:
                         job_id = self.db.create_job((role, get_comp_id, link, location, salary, get_port_id, today))
-                    except:
-                        # duplicate
+                    else:
                         job_id = None
                         duplicated_cards += 1
                     

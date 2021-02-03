@@ -6,7 +6,6 @@ Created on Sat Jan 30 11:43:58 2021
 @author: nathanaelyoewono
 """
 
-import os
 import sqlite3
 from sqlite3 import Error
 
@@ -176,16 +175,14 @@ class JobDB:
     def get_company_port_group_id(self, name, table):
         
         """
-        Query tasks by priority
-        :param conn: the Connection object
-        :param priority:
-        :return:
+        Query id for company, portal and group by name
         """
         
         cur = self.conn.cursor()
         cur.execute(f"SELECT id FROM {table} WHERE name=?", (name,))
     
         rows = cur.fetchall()
+        print(rows)
     
         if len(rows)>0:
             return rows[0][0]  
@@ -196,9 +193,6 @@ class JobDB:
         
         """
         Query jobs by group search role
-        :param conn: the Connection object
-        :param priority:
-        :return:
         """
         
         cur = self.conn.cursor()
@@ -236,10 +230,7 @@ class JobDB:
     def query_all_group_search(self):
         
         """
-        Query jobs by group search role
-        :param conn: the Connection object
-        :param priority:
-        :return:
+        Query all jobs
         """
         
         cur = self.conn.cursor()
@@ -257,10 +248,7 @@ class JobDB:
     def query_link(self, ID):
         
         """
-        Query jobs by group search role
-        :param conn: the Connection object
-        :param priority:
-        :return:
+        Query job link by job id
         """
         
         cur = self.conn.cursor()
@@ -277,6 +265,9 @@ class JobDB:
             return None
     
     def query_applied_rejected(self):
+        
+        """Query the number of jobs applied and rejected"""
+        
         cur = self.conn.cursor()
         query = '''SELECT applied, rejected
                    FROM job
@@ -318,10 +309,7 @@ class JobDB:
     def query_job_by_status(self, status, group_search):
         
         """
-        Query jobs by group search role
-        :param conn: the Connection object
-        :param priority:
-        :return:
+        Query jobs its status (applied, pending, rejected)
         """
         cur = self.conn.cursor()
         
@@ -399,15 +387,29 @@ class JobDB:
             return rows
         else:
             return None
+    
+    def check_job_exist(self, desc):
         
+        cur = self.conn.cursor()
+        query = """SELECT job.id
+                   FROM job
+                   WHERE job.role=? AND job.company_id=?"""
+        
+        cur.execute(query, desc)
+        rows = cur.fetchall()
+        
+        if len(rows)>0:
+            return rows
+        else:
+            return None
 
         
             
 
     
-db = JobDB()
-db.create_connection()
-res = db.query_applied_rejected()
+# db = JobDB()
+# db.create_connection()
+# res = db.query_applied_rejected()
 #print(res)
     
     

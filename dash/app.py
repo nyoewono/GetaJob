@@ -47,30 +47,29 @@ else:
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-# app.title = 'GetaJob'
 server = app.server
 
 
 ######### -------------------- DEFAULT ---------------------- ###########
 
+# set the dropdown values
 drop_down = db.query_all_group_search()
 drop_down_dic = [{'label': i[0], 'value': i[0]} for i in drop_down]
-# print(drop_down_dic)
 
-# print(db.query_jobs())
-
+# set the page size for the table and its column
 PAGE_SIZE = 15
 col_lst = ['Index', 'ID', 'Role', 'Company', 'Location', 'Salary',
            'Date_Scraped', 'Portal']
 table_col =[{"name": i, "id": i} for i in col_lst]
 
-# report card
+# Set the report card table column and its values for each status
 rep_list = ['Status', 'Number']
 report_col = [{"name": i, "id": i} for i in rep_list]
 applied, rejected, pending = db.query_applied_rejected()
-
 data_report = [('Applied', applied), ('Pending', pending), ('Rejected', rejected)]
 report_df = pd.DataFrame(data_report, columns = ['Status', 'Number']).to_dict('records')
+
+# close the database
 db.conn.close()
 
 
@@ -88,6 +87,7 @@ def get_text_indeed(link):
         
     all_text = []
     
+    # iterate over all paragraph
     for i in texts:
         
         p = i.get_text()
@@ -100,15 +100,25 @@ def get_text_indeed(link):
 
     return all_text
 
+def extract_list(p):
+    """Check if there is a list after p"""
+    for sibling in p.next_siblings:
+        if sibling.name == 'ul':
+            return [li.text for li in sibling.find_all('li')]
+        if sibling.name == 'p':
+            return None 
+
 def get_text_seek(link):
     page = requests.get(link)
     # parse with BFS
     soup = BeautifulSoup(page.text, 'lxml')
     all_text = []
+    
     try:
         texts = soup.find(attrs={"data-automation" : "mobileTemplate"})
         texts = texts.find('div', {"class": "FYwKg WaMPc_4"})
-
+        
+        # iterate over all of the text element
         for i in texts:
             try:
                 if i.name=='ul':
@@ -138,19 +148,15 @@ def get_text_seek(link):
                     if '\xa0' in new_sent:
                         all_text[each_sent][each_each_sent] = all_text[each_sent][each_each_sent].replace('\xa0', '')
     except:
+        # failed to get the text
         all_text = ['']
     
     return all_text
 
 
-def extract_list(p):
-    for sibling in p.next_siblings:
-        if sibling.name == 'ul':
-            return [li.text for li in sibling.find_all('li')]
-        if sibling.name == 'p':
-            return None 
-
 def get_df(group_search):
+    
+    """Get the data for the jobs with no status"""
     
     if db.create_connection()==1:
         pass
@@ -163,11 +169,13 @@ def get_df(group_search):
                                                     'Date_Scraped',
                                                     'Portal'])
     jobs_df['Index'] = jobs_df.index
-    #db.conn.close()
     
     return jobs_df
 
 def get_df_status(status, group_search):
+    
+    """Get the data for the jobs with status"""
+    
     if db.create_connection()==1:
         pass
     else:
@@ -185,11 +193,16 @@ def get_df_status(status, group_search):
 
 
 def text_template(lists, link):
+    
+    """Template to print out the text detail"""
+    
     text = [html.H3('Job details', style={'backgroundColor':'#327ba8',
                                           'color':'white',
                                           'padding':'5px',
                                           'border-radius': 10})]
     
+    if len(lists)==0:
+        text.append(html.P('Details not available, please visit the link directly'))
     for i in lists:
         if type(i)!=list:
             new_child = html.P(i)
@@ -204,6 +217,9 @@ def text_template(lists, link):
     return text
 
 def empty_template():
+    
+    """Template if no text is detected"""
+    
     text = [html.H3('No details available', style={'backgroundColor':'#327ba8',
                                           'color':'white',
                                           'padding':'5px',
@@ -211,6 +227,9 @@ def empty_template():
     return text
 
 def update_applied(apply, ID):
+    
+    """Update the applied jobs"""
+    
     if db.create_connection()==1:
         try:
             db.update_applied(apply, ID)
@@ -224,6 +243,13 @@ def update_applied(apply, ID):
         raise('Error connect db')
 
 def update_rejected(reject, ID):
+    
+    """Update the rejected jobs"""
+    
+    # set by default for faulty input
+    if reject not in [0, 1]:
+        reject = 0
+        
     if db.create_connection()==1:
         try:
             db.update_rejected(reject, ID)
@@ -237,7 +263,7 @@ def update_rejected(reject, ID):
         raise('Error connect db')
             
         
-
+######### -------------------- CALLBACKS ---------------------- ###########
 
 # update the table job
 @app.callback(
@@ -249,22 +275,37 @@ def update_rejected(reject, ID):
     Input('datatable-job', "page_current"),
     Input('datatable-job', "page_size"))
 def update_table(group_search, status, page_current, page_size):
+    
+    """ Callbacks for:
+        - Data jobs in the table
+        - Column in the table jobs
+        - Dropdown rejected column in the table jobs
+    """
+    
     dic_report = {0:'Applied', 1:'Pending', 2:'Rejected'}
     
+    # the status report was not touched
     if len(status)==0:
+       
+        # the group search was specified
         if group_search != None:
             col_lst = ['Index', 'ID', 'Role', 'Company', 'Location', 'Salary', 
                        'Date_Scraped', 'Portal']
             table_col =[{"name": i, "id": i} for i in col_lst]
-        
+            
+            # get the data for the table
             df = get_df(group_search)
+            
             if df.shape[0]!=0:
                 return [df.iloc[
                     page_current*page_size:(page_current+ 1)*page_size
                 ].to_dict('records'), table_col,{}]
+            
             # returning empty table
             else:
                 return [[],table_col,{}]
+            
+        # No group search, get all jobs
         else:
             col_lst = ['Index', 'ID', 'Role', 'Company', 'Location', 'Salary', 
                        'Date_Scraped', 'Portal']
@@ -274,19 +315,24 @@ def update_table(group_search, status, page_current, page_size):
                 return [df.iloc[
                     page_current*page_size:(page_current+ 1)*page_size
                 ].to_dict('records'), table_col,{}]
+            
             # returning empty table
             else:
                 return [[],table_col,{}]
-          
+            
+    # there is status     
     else:
         col_lst = ['Index', 'ID', 'Role', 'Company', 'Location', 'Salary', 
                    'Date_Scraped', 'Portal']
         table_col =[{"name": i, "id": i} for i in col_lst]
+        
+        # set the dropdown column for rejected
         table_col.append({"name":"Rejected", "id":"Rejected", 
                           'presentation': 'dropdown'})
         dd = {'Rejected':{'options':[{'label':'Yes', 'value':1}, 
                                      {'label':'No', 'value':0}]}}
         
+        # get the data based on the group search and status
         status = dic_report[status[0]]
         df = get_df_status(status, group_search)
         if df.shape[0]!=0:
@@ -306,6 +352,10 @@ def update_table(group_search, status, page_current, page_size):
     Input('datatable-job', 'data')
     )
 def display_details(row, data):
+    
+    """ Callbacks for:
+        - Displaying job details in the right hand side of the table
+    """
 
     # check if there is no data and no selected row
     if data!=[] and len(row) != 0:
@@ -350,13 +400,23 @@ def display_details(row, data):
                Input('datatable-report', 'selected_rows')],
               [State('datatable-job', 'data')])
 def show_removed_rows(previous, status, current):
+    
+    """ Callbacks for:
+        - Updating the job report table
+        - Updating which rows to be selected in the job table
+    """
+    
+    # get which click is triggered
     ctx = dash.callback_context
-    # print(ctx.triggered[0])
+    
+    # no table altered
     if previous==None:
         raise dash.exceptions.PreventUpdate()
-        #return [report_df.to_dict('records'), 0]
+        
     else:
         clicked = ctx.triggered[0]['prop_id'].split('.')[0]
+        
+        # prevent table update caused by changing the table by status
         if clicked=='datatable-report':
             raise dash.exceptions.PreventUpdate()
         else:
@@ -383,11 +443,14 @@ def show_removed_rows(previous, status, current):
                         update_rejected(0, applied_id[0])
                 except:
                     pass
+                
                 if db.create_connection()==1:
                     applied, rejected, pending = db.query_applied_rejected()
                     
                     if len(applied_id)>0:
                         
+                        # this indicate that the job report was not touched, only group search
+                        # Thus, this will indicate that you are applying for a job
                         if len(status)==0:
                             update_applied(1, applied_id[0])
                             
@@ -399,14 +462,13 @@ def show_removed_rows(previous, status, current):
                     data = [('Applied', applied), ('Pending', pending), 
                             ('Rejected', rejected)]
                     report_df = pd.DataFrame(data, columns = ['Status', 'Number'])
-                    # if report_df.shape[0]!=0:
-                    #     return [report_df.to_dict('records'), [0]]
-                    # else:
-                    #     return [report_df.to_dict('records'), []]
+                    
+                    # if there is still data in the table
                     if len(current)!=0:
                         return [report_df.to_dict('records'), [0]]
                     else:
                         return [report_df.to_dict('records'), []]
+                    
                 else:
                     raise("Can't connect to db")
 
@@ -414,6 +476,11 @@ def show_removed_rows(previous, status, current):
 @app.callback(Output('datatable-report', 'selected_rows'),
               Input('clear-but', 'n_clicks'))
 def clear_report_option(clear_but_clicks):
+    
+    """ Callbacks for:
+        - Clear out all selected rows in the report table
+    """
+    
     ctx = dash.callback_context
     clicked = ctx.triggered[0]['prop_id'].split('.')[0]
     if clicked=='clear-but':
@@ -426,12 +493,18 @@ def clear_report_option(clear_but_clicks):
               [Input('find-new-jobs', 'n_clicks')],
               [State('new-role', 'value')])
 def new_jobs(click, new_role):
-    # scrape the new job
-    # get infinity loop to wait for the result to come
-    # coat everything with loading page (if have time)
     
-    # enter here means find has been clicked
-    
+    """ Callbacks for:
+        - Updating which group search was picked in the dropdown at the top
+        - Adding the option of the dropdown after getting new role
+        
+        This is where the scraping bot take actions!
+        
+        Using the state here enabled this callback to be triggered only if 
+        the button was clicked
+    """
+     
+    # enter here means find has been clicked 
     if new_role==None:
         raise dash.exceptions.PreventUpdate()
     else:
@@ -618,6 +691,7 @@ def open_browser():
     webbrowser.open_new('http://127.0.0.1:8050/')
     
 if __name__ == '__main__':
+    # wait for 1 sec, then start browser
     Timer(1, open_browser).start()
     app.run_server(debug=True)
     
