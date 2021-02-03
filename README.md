@@ -42,4 +42,7 @@ These are the libraries or packages that you may need to install before using th
 - pip install dash-bootstrap-components
 - pip install pandas
 
+## Run The Application
+To run the application, go to the directory of where you put this code, cd to the dash folder and type "python app.py". This will automatically open up your browser and show the dashboard in the local host on where it is hosted. Or, you could type a bash script which will create a clickable icon to run the dashboard automatically on your desktop (click this link: https://github.com/nyoewono/GetaJob/blob/main/desktop_click.txt).
+
 # Goodluck and happy job hunting :)
